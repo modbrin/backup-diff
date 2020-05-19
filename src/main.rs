@@ -12,15 +12,15 @@ use log::{LevelFilter, SetLoggerError, Level};
 use std::error::Error;
 use chrono::Local;
 
-use backup_diff::{get_directory_map, print_select_values};
+use backup_diff::{get_directory_map, print_select_values, print_duplicates};
 use backup_diff::get_diff;
 use backup_diff::find_duplicates;
 
 // TODOS
-// do erasing in progress
 // add timestamps / erase log file
-// add duplicates finding / printing
-// add diff printing
+// optimize for memory usage
+// use rayon for concurrent processing / handle concurrency with shared state
+// filter out warnings
 
 fn main() {
     let logging_res = setup_logging();
@@ -51,7 +51,12 @@ fn main() {
     print_select_values(&map_b, &only_b);
 
     let dup_a = find_duplicates(&map_a);
+    println!("\nDuplicates in `new` folder:");
+    print_duplicates(&dup_a);
+
     let dup_b = find_duplicates(&map_b);
+    println!("\nDuplicates in `old` folder:");
+    print_duplicates(&dup_b);
 }
 
 fn setup_logging() -> Result<(), Box<dyn Error>> {

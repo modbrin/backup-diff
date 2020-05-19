@@ -1,4 +1,4 @@
-use backup_diff::{get_directory_map, get_diff};
+use backup_diff::{get_directory_map, get_diff, find_duplicates};
 
 fn get_test_data_path(case: &str, target: &str) -> String {
     format!("./tests/test_data/case_{}/{}", case, target)
@@ -54,4 +54,36 @@ fn empty_directories() {
     assert!(del.len() == 0);
     assert!(dir_a.len() == 0);
     assert!(dir_b.len() == 0);
+}
+
+#[test]
+fn nesting_file_order() {
+    let dir_a = get_directory_map(&get_test_data_path("nesting_file_order","after"));
+    let dir_b = get_directory_map(&get_test_data_path("nesting_file_order", "before"));
+
+    let (new, del) = get_diff(&dir_a, &dir_b);
+    assert!(new.len() == 0);
+    assert!(del.len() == 0);
+    assert!(dir_a.len() == 3);
+    assert!(dir_b.len() == 3);
+}
+
+#[test]
+fn duplicates_simple() {
+    let dir_a = get_directory_map(&get_test_data_path("duplicates_simple","after"));
+    let dir_b = get_directory_map(&get_test_data_path("duplicates_simple", "before"));
+
+    let (new, del) = get_diff(&dir_a, &dir_b);
+    assert!(new.len() == 1);
+    assert!(del.len() == 1);
+    assert!(dir_a.len() == 1);
+    assert!(dir_b.len() == 1);
+    let dup_a = find_duplicates(&dir_a);
+    let dup_b = find_duplicates(&dir_b);
+
+    assert!(dup_a.len() == 1);
+    assert!(dup_b.len() == 1);
+    assert!(dup_a.get(0).unwrap().len() == 2);
+    assert!(dup_b.get(0).unwrap().len() == 2);
+
 }

@@ -31,13 +31,39 @@ pub fn print_select_values(map: &MultiMap<String, String>, keys: &Vec<String>) {
     for key in keys.iter() {
         println!("  {}", map.get(key).unwrap());
     }
+    if keys.is_empty() {
+        println!("  <Empty>")
+    }
 }
 
 pub fn find_duplicates(map: &MultiMap<String, String>) -> Vec<Vec<String>> {
-    // for key in map.keys() {
-    //
-    // }
-    unimplemented!()
+    let mut result = Vec::new();
+    for key in map.keys() {
+        let vals = map.get_vec(key).unwrap();
+        if vals.len() > 1 {
+            result.push(vals.clone());
+        }
+    }
+    result
+}
+
+pub fn print_duplicates(duplicates: &Vec<Vec<String>>) {
+    for dup in duplicates.iter() {
+        for fp in dup.iter().enumerate() {
+            match fp {
+                (0, str) => {
+                    println!("  [{}]", str)
+                }
+                (_, str) => {
+                    println!("    {} (duplicate)", str)
+                }
+            }
+        }
+        println!();
+    }
+    if duplicates.is_empty() {
+        println!("  <Empty>");
+    }
 }
 
 fn get_file_hash(path: &str) -> io::Result<String> {
