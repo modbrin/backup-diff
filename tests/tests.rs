@@ -10,8 +10,8 @@ fn same_files_different_filenames() {
     let dir_b = get_directory_map(&get_test_data_path("same_files_different_filenames", "before"));
 
     let (new, del) = get_diff(&dir_a, &dir_b);
-    assert!(new.len() == 0);
-    assert!(del.len() == 0);
+    assert_eq!(new.len(), 0);
+    assert_eq!(del.len(), 0);
 }
 
 #[test]
@@ -20,8 +20,8 @@ fn old_file_only() {
     let dir_b = get_directory_map(&get_test_data_path("old_file_only", "before"));
 
     let (new, del) = get_diff(&dir_a, &dir_b);
-    assert!(new.len() == 0);
-    assert!(del.len() == 1);
+    assert_eq!(new.len(), 0);
+    assert_eq!(del.len(), 1);
 }
 
 #[test]
@@ -30,8 +30,8 @@ fn new_file_only() {
     let dir_b = get_directory_map(&get_test_data_path("new_file_only", "before"));
 
     let (new, del) = get_diff(&dir_a, &dir_b);
-    assert!(new.len() == 1);
-    assert!(del.len() == 0);
+    assert_eq!(new.len(), 1);
+    assert_eq!(del.len(), 0);
 }
 
 #[test]
@@ -40,8 +40,8 @@ fn new_and_old() {
     let dir_b = get_directory_map(&get_test_data_path("new_and_old", "before"));
 
     let (new, del) = get_diff(&dir_a, &dir_b);
-    assert!(new.len() == 1);
-    assert!(del.len() == 1);
+    assert_eq!(new.len(), 1);
+    assert_eq!(del.len(), 1);
 }
 
 #[test]
@@ -50,10 +50,10 @@ fn empty_directories() {
     let dir_b = get_directory_map(&get_test_data_path("empty_directories", "before"));
 
     let (new, del) = get_diff(&dir_a, &dir_b);
-    assert!(new.len() == 0);
-    assert!(del.len() == 0);
-    assert!(dir_a.len() == 0);
-    assert!(dir_b.len() == 0);
+    assert_eq!(new.len(), 0);
+    assert_eq!(del.len(), 0);
+    assert_eq!(dir_a.len(), 0);
+    assert_eq!(dir_b.len(), 0);
 }
 
 #[test]
@@ -62,10 +62,10 @@ fn nesting_file_order() {
     let dir_b = get_directory_map(&get_test_data_path("nesting_file_order", "before"));
 
     let (new, del) = get_diff(&dir_a, &dir_b);
-    assert!(new.len() == 0);
-    assert!(del.len() == 0);
-    assert!(dir_a.len() == 3);
-    assert!(dir_b.len() == 3);
+    assert_eq!(new.len(), 0);
+    assert_eq!(del.len(), 0);
+    assert_eq!(dir_a.len(), 3);
+    assert_eq!(dir_b.len(), 3);
 }
 
 #[test]
@@ -74,16 +74,36 @@ fn duplicates_simple() {
     let dir_b = get_directory_map(&get_test_data_path("duplicates_simple", "before"));
 
     let (new, del) = get_diff(&dir_a, &dir_b);
-    assert!(new.len() == 1);
-    assert!(del.len() == 1);
-    assert!(dir_a.len() == 1);
-    assert!(dir_b.len() == 1);
+    assert_eq!(new.len(), 1);
+    assert_eq!(del.len(), 1);
+    assert_eq!(dir_a.len(), 1);
+    assert_eq!(dir_b.len(), 1);
     let dup_a = find_duplicates(&dir_a);
     let dup_b = find_duplicates(&dir_b);
 
-    assert!(dup_a.len() == 1);
-    assert!(dup_b.len() == 1);
-    assert!(dup_a.get(0).unwrap().len() == 2);
-    assert!(dup_b.get(0).unwrap().len() == 2);
+    assert_eq!(dup_a.len(), 1);
+    assert_eq!(dup_b.len(), 1);
+    assert_eq!(dup_a.get(0).unwrap().len(), 2);
+    assert_eq!(dup_b.get(0).unwrap().len(), 2);
+}
 
+#[test]
+fn duplicates_multiple() {
+    let dir_a = get_directory_map(&get_test_data_path("duplicates_multiple","after"));
+    let dir_b = get_directory_map(&get_test_data_path("duplicates_multiple", "before"));
+
+    let (new, del) = get_diff(&dir_a, &dir_b);
+    assert_eq!(new.len(), 1);
+    assert_eq!(del.len(), 1);
+    assert_eq!(dir_a.len(), 2);
+    assert_eq!(dir_b.len(), 2);
+    let dup_a = find_duplicates(&dir_a);
+    let dup_b = find_duplicates(&dir_b);
+
+    assert_eq!(dup_a.len(), 2);
+    assert_eq!(dup_b.len(), 2);
+    assert_eq!(dup_a.get(0).unwrap().len(), 2);
+    assert_eq!(dup_b.get(0).unwrap().len(), 2);
+    assert_eq!(dup_a.get(1).unwrap().len(), 2);
+    assert_eq!(dup_b.get(1).unwrap().len(), 2);
 }

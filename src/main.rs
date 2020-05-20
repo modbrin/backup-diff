@@ -1,20 +1,15 @@
 #[macro_use]
 extern crate log;
+
 use log4rs;
 use clap::clap_app;
-use std::io;
-use multimap::MultiMap;
-use std::collections::HashSet;
 use log4rs::append::file::FileAppender;
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Config, Appender, Root};
-use log::{LevelFilter, SetLoggerError, Level};
+use log::LevelFilter;
 use std::error::Error;
-use chrono::Local;
 
-use backup_diff::{get_directory_map, print_select_values, print_duplicates};
-use backup_diff::get_diff;
-use backup_diff::find_duplicates;
+use backup_diff::{get_diff, find_duplicates, get_directory_map, print_select_values, print_duplicates, get_errors, print_errors};
 
 // TODOS
 // add timestamps / erase log file
@@ -23,13 +18,11 @@ use backup_diff::find_duplicates;
 // filter out warnings
 
 fn main() {
-    let logging_res = setup_logging();
-    if logging_res.is_err() {
-        println!("Error setting up logger.");
-        return;
-    }
-
-    info!("New Session");
+    // let logging_res = setup_logging();
+    // if logging_res.is_err() {
+    //     println!("Error setting up logger.");
+    //     return;
+    // } // TODO: deprecated
 
     let matches = clap_app!("backup-diff" =>
         (version: "0.1")
@@ -50,15 +43,20 @@ fn main() {
     println!("\nRemoved files ({} items):", only_b.len());
     print_select_values(&map_b, &only_b);
 
-    let dup_a = find_duplicates(&map_a);
+    let (dup_a, dup_b) = (find_duplicates(&map_a), find_duplicates(&map_b));
     println!("\nDuplicates in `new` folder:");
     print_duplicates(&dup_a);
 
-    let dup_b = find_duplicates(&map_b);
     println!("\nDuplicates in `old` folder:");
     print_duplicates(&dup_b);
+
+    let errors = get_errors();
+
+    println!("\nErrors:");
+    print_errors(&errors); // TODO: move printing utils to separate file
 }
 
+// TODO: unused - repurpose or delete
 fn setup_logging() -> Result<(), Box<dyn Error>> {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
@@ -72,4 +70,3 @@ fn setup_logging() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-

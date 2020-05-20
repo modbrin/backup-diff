@@ -5,7 +5,23 @@ use sha2::{Sha256, Digest};
 use std::fs::File;
 use std::path::Path;
 use std::io;
+use std::error::Error;
+use lazy_static::lazy_static;
+use std::sync::Mutex;
+
 mod tracker;
+
+lazy_static! {
+    static ref ERRORS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+}
+
+pub fn get_errors() -> Vec<String> {
+    ERRORS.lock().unwrap().clone()
+}
+
+pub fn push_error(message: &str) {
+    ERRORS.lock().unwrap().push(message.to_owned());
+}
 
 pub fn get_directory_map(dir: &str) -> MultiMap<String, String> {
     // get list of filepaths in given directories
@@ -59,9 +75,17 @@ pub fn print_duplicates(duplicates: &Vec<Vec<String>>) {
                 }
             }
         }
-        println!();
     }
     if duplicates.is_empty() {
+        println!("  <Empty>");
+    }
+}
+
+pub fn print_errors(errors: &Vec<String>) {
+    for err in errors {
+        println!("ERR: {}", err);
+    }
+    if errors.is_empty() {
         println!("  <Empty>");
     }
 }
@@ -74,7 +98,7 @@ fn get_file_hash(path: &str) -> io::Result<String> {
 }
 
 fn recursive_dir_list(dir: &str) -> Vec<String> {
-    print!("Listing directory in progress...");
+    print!("Listing directory [{}] in progress...", dir);
 
     let mut list = Vec::new();
 
@@ -89,7 +113,7 @@ fn recursive_dir_list(dir: &str) -> Vec<String> {
                 }
             }
             Err(error) => {
-                // TODO: save the error to print later
+                push_error(error.description());
             }
         }
     }
@@ -100,7 +124,7 @@ fn recursive_dir_list(dir: &str) -> Vec<String> {
 // moves out strings from input into resulting map
 fn hash_file_list(filepaths: &Vec<String>, tracker: &mut tracker::ProgressTracker) -> MultiMap<String, String> {
     let mut store = MultiMap::new();
-    println!("Hashing {} files, this may take long time.", filepaths.len());
+    println!("Hashing {} file(s), this may take long time.", filepaths.len());
 
     let mut counter = 0usize;
     tracker.init(0, filepaths.len());
