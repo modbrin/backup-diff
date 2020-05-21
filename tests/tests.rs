@@ -107,10 +107,10 @@ fn duplicates_multiple() {
 
     assert_eq!(dup_a.len(), 2);
     assert_eq!(dup_b.len(), 2);
-    assert_eq!(dup_a.get(0).unwrap().len(), 2);
-    assert_eq!(dup_b.get(0).unwrap().len(), 2);
-    assert_eq!(dup_a.get(1).unwrap().len(), 2);
-    assert_eq!(dup_b.get(1).unwrap().len(), 2);
+    assert_eq!(dup_a.get(0).unwrap().len(), 3);
+    assert_eq!(dup_b.get(0).unwrap().len(), 3);
+    assert_eq!(dup_a.get(1).unwrap().len(), 3);
+    assert_eq!(dup_b.get(1).unwrap().len(), 3);
 }
 
 const POPULATE_FILE_NUM: usize = 1_000;

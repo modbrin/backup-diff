@@ -14,7 +14,7 @@ fn main() {
     let matches = clap_app!("backup-diff" =>
         (version: "0.1")
         (author: "Maksim S. <modbrin@live.com>")
-        (about: "Provides hash difference in filesets between two directories.\nErrors are saved to problems.log file.")
+        (about: "Provides hash difference in filesets between two directories.")
         (@arg DIR_A: +required "First directory, e.g. newer version")
         (@arg DIR_B: +required "Second directory, e.g. older version")
         (@arg LINEAR: -l --linear "Disable concurrent processing")
@@ -26,7 +26,7 @@ fn main() {
     let map_b = get_directory_map(matches.value_of("DIR_B").unwrap(), enable_linear);
 
     let (only_a, only_b) = get_diff(&map_a, &map_b);
-    println!("New files ({} items):", only_a.len());
+    println!("\nNew files ({} items):", only_a.len());
     print_select_values(&map_a, &only_a);
 
     println!("\nRemoved files ({} items):", only_b.len());

@@ -1,4 +1,3 @@
-use std::cmp::min;
 
 pub struct ProgressTracker {
     counter: usize,
@@ -31,7 +30,7 @@ impl ProgressTracker {
 
     // print the result to terminal
     pub fn show(&self) {
-        print!("\r{:2}%", (self.get_percentage() * 100.0).ceil()) //TODO: do erasing
+        print!("\r{:2}%", (self.get_percentage() * 100.0).ceil())
     }
 
     // increase stored value by 1

@@ -12,7 +12,6 @@ use crate::tracker::ProgressTracker;
 use std::sync::mpsc::channel;
 use std::ops::DerefMut;
 use core::mem;
-use std::borrow::Borrow;
 
 mod tracker;
 
@@ -71,6 +70,7 @@ pub fn find_duplicates(map: &MultiMap<String, String>) -> Vec<Vec<String>> {
     result
 }
 
+/// get string representation of hash for file by given path
 fn get_file_hash(path: &str) -> io::Result<String> {
     let mut file = File::open(Path::new(path))?;
     let mut sha256 = Sha256::new();
@@ -78,6 +78,7 @@ fn get_file_hash(path: &str) -> io::Result<String> {
     Ok(format!("{:x}", sha256.result()))
 }
 
+/// get all files in directory recursively
 fn recursive_dir_list(dir: &str) -> Vec<String> {
     print!("Listing directory [{}] in progress...", dir);
 
@@ -102,14 +103,14 @@ fn recursive_dir_list(dir: &str) -> Vec<String> {
     list
 }
 
-// moves out strings from input into resulting map
+/// moves out strings from input into resulting map
 pub fn hash_file_list(filepaths: Vec<String>) -> MultiMap<String, String> {
     let mut store = MultiMap::new();
     println!("Hashing {} file(s), this may take long time.", (&filepaths).len());
 
     let mut tracker = ProgressTracker::new(0, (&filepaths).len());
 
-    for fp in filepaths.iter() { // TODO: concurrent processing
+    for fp in filepaths.iter() {
         tracker.increment();
         tracker.show();
         let hash = get_file_hash(fp);
@@ -121,12 +122,17 @@ pub fn hash_file_list(filepaths: Vec<String>) -> MultiMap<String, String> {
     store
 }
 
+/// moves out strings from input into resulting map
 pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, String> {
     println!("Hashing {} file(s), this may take long time.", filepaths.len());
+    if filepaths.is_empty() {
+        println!("Done");
+        return MultiMap::new();
+    }
 
-    let mut paths = Arc::new(filepaths);
-    let mut store = Arc::new(Mutex::new(MultiMap::new()));
-    let mut tracker = Arc::new(Mutex::new(ProgressTracker::new(0, paths.len())));
+    let paths = Arc::new(filepaths);
+    let store = Arc::new(Mutex::new(MultiMap::new()));
+    let tracker = Arc::new(Mutex::new(ProgressTracker::new(0, paths.len())));
 
     let (tx, rx) = channel();
     for fp_i in 0..paths.len() {
@@ -136,7 +142,7 @@ pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, Strin
             let hash = get_file_hash(fp);
             match hash {
                 Ok(hash_string) => {
-                    let mut store = store.lock().unwrap().insert(hash_string, fp.clone());
+                    store.lock().unwrap().insert(hash_string, fp.clone());
                 }
                 Err(err) => {
                     push_error(err.description());
@@ -153,5 +159,6 @@ pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, Strin
     rx.recv().unwrap();
     let mut store_cont = MultiMap::new();
     mem::swap(store.lock().unwrap().deref_mut(), &mut store_cont);
+    println!("\rDone");
     store_cont
 }
