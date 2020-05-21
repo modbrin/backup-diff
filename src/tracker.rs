@@ -1,24 +1,20 @@
+use std::cmp::min;
+
 pub struct ProgressTracker {
     counter: usize,
     min_val: usize,
     max_val: usize,
 }
 
+/// Note: non-templated version, uses usize which can overflow and this is not checked
 impl ProgressTracker {
     // create object with default values
-    pub fn new() -> Self {
+    pub fn new(min_val: usize, max_val: usize) -> Self {
         ProgressTracker {
-            counter: 0,
-            min_val: 0,
-            max_val: 100,
+            counter: min_val,
+            min_val,
+            max_val,
         }
-    }
-
-    // reset the state to given value
-    pub fn init(&mut self, min_val: usize, max_val: usize) {
-        self.counter = min_val;
-        self.min_val = min_val;
-        self.max_val = max_val;
     }
 
     // update inner state to value
@@ -36,5 +32,23 @@ impl ProgressTracker {
     // print the result to terminal
     pub fn show(&self) {
         print!("\r{:2}%", (self.get_percentage() * 100.0).ceil()) //TODO: do erasing
+    }
+
+    // increase stored value by 1
+    pub fn increment(&mut self) {
+        if self.counter < self.max_val {
+            self.counter += 1;
+        }
+    }
+
+    // decrease stored value by 1
+    pub fn decrement(&mut self) {
+        if self.counter > self.min_val {
+            self.counter -= 1;
+        }
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.max_val == self.counter
     }
 }

@@ -4,10 +4,15 @@ use walkdir::WalkDir;
 use sha2::{Sha256, Digest};
 use std::fs::File;
 use std::path::Path;
-use std::io;
+use std::{io, thread};
 use std::error::Error;
 use lazy_static::lazy_static;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
+use crate::tracker::ProgressTracker;
+use std::sync::mpsc::channel;
+use std::ops::DerefMut;
+use core::mem;
+use std::borrow::Borrow;
 
 mod tracker;
 
@@ -15,43 +20,46 @@ lazy_static! {
     static ref ERRORS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 }
 
+/// get list of all reported errors
 pub fn get_errors() -> Vec<String> {
     ERRORS.lock().unwrap().clone()
 }
 
+/// report error
 pub fn push_error(message: &str) {
     ERRORS.lock().unwrap().push(message.to_owned());
 }
 
-pub fn get_directory_map(dir: &str) -> MultiMap<String, String> {
+/// get Map of Filehash -> List of Filepaths
+pub fn get_directory_map(dir: &str, force_linear: bool) -> MultiMap<String, String> {
     // get list of filepaths in given directories
     let list = recursive_dir_list(dir);
 
     // connect filepaths and file hashes
-    hash_file_list(&list, &mut tracker::ProgressTracker::new())
+    if force_linear {
+        println!("Concurrent Processing Disabled");
+        hash_file_list(list)
+    } else {
+        println!("Concurrent Processing Enabled");
+        hash_file_list_parallel(list)
+    }
 }
 
+/// get symmetric difference of keys in given maps split in two parts
 pub fn get_diff(map_a: &MultiMap<String, String>, map_b: &MultiMap<String, String>) -> (Vec<String>, Vec<String>) {
     // get filehash sets
     let set_a: HashSet<&str> = map_a.iter().map(|(k, _)| k.as_str()).collect();
     let set_b: HashSet<&str> = map_b.iter().map(|(k, _)| k.as_str()).collect();
 
     // find difference in filehash sets
-    let only_a = set_a.difference(&set_b).cloned().map(|s|s.to_owned()).collect(); // new items
-    let only_b = set_b.difference(&set_a).cloned().map(|s|s.to_owned()).collect(); // deleted items
+    let only_a = set_a.difference(&set_b).cloned().map(|s| s.to_owned()).collect(); // new items
+    let only_b = set_b.difference(&set_a).cloned().map(|s| s.to_owned()).collect(); // deleted items
 
     (only_a, only_b)
 }
 
-pub fn print_select_values(map: &MultiMap<String, String>, keys: &Vec<String>) {
-    for key in keys.iter() {
-        println!("  {}", map.get(key).unwrap());
-    }
-    if keys.is_empty() {
-        println!("  <Empty>")
-    }
-}
 
+/// get duplicate entries referring to same key
 pub fn find_duplicates(map: &MultiMap<String, String>) -> Vec<Vec<String>> {
     let mut result = Vec::new();
     for key in map.keys() {
@@ -61,33 +69,6 @@ pub fn find_duplicates(map: &MultiMap<String, String>) -> Vec<Vec<String>> {
         }
     }
     result
-}
-
-pub fn print_duplicates(duplicates: &Vec<Vec<String>>) {
-    for dup in duplicates.iter() {
-        for fp in dup.iter().enumerate() {
-            match fp {
-                (0, str) => {
-                    println!("  [{}]", str)
-                }
-                (_, str) => {
-                    println!("    {} (duplicate)", str)
-                }
-            }
-        }
-    }
-    if duplicates.is_empty() {
-        println!("  <Empty>");
-    }
-}
-
-pub fn print_errors(errors: &Vec<String>) {
-    for err in errors {
-        println!("ERR: {}", err);
-    }
-    if errors.is_empty() {
-        println!("  <Empty>");
-    }
 }
 
 fn get_file_hash(path: &str) -> io::Result<String> {
@@ -122,23 +103,55 @@ fn recursive_dir_list(dir: &str) -> Vec<String> {
 }
 
 // moves out strings from input into resulting map
-fn hash_file_list(filepaths: &Vec<String>, tracker: &mut tracker::ProgressTracker) -> MultiMap<String, String> {
+pub fn hash_file_list(filepaths: Vec<String>) -> MultiMap<String, String> {
     let mut store = MultiMap::new();
-    println!("Hashing {} file(s), this may take long time.", filepaths.len());
+    println!("Hashing {} file(s), this may take long time.", (&filepaths).len());
 
-    let mut counter = 0usize;
-    tracker.init(0, filepaths.len());
+    let mut tracker = ProgressTracker::new(0, (&filepaths).len());
 
-    for fp in filepaths.iter() {
+    for fp in filepaths.iter() { // TODO: concurrent processing
+        tracker.increment();
+        tracker.show();
         let hash = get_file_hash(fp);
         if hash.is_err() { continue; }
         let uwr_hash = hash.unwrap();
         store.insert(uwr_hash, fp.to_owned());
-        tracker.update(counter);
-        counter += 1;
-        tracker.show();
     }
     println!("\rDone");
     store
 }
 
+pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, String> {
+    println!("Hashing {} file(s), this may take long time.", filepaths.len());
+
+    let mut paths = Arc::new(filepaths);
+    let mut store = Arc::new(Mutex::new(MultiMap::new()));
+    let mut tracker = Arc::new(Mutex::new(ProgressTracker::new(0, paths.len())));
+
+    let (tx, rx) = channel();
+    for fp_i in 0..paths.len() {
+        let (store, tracker, paths, tx) = (Arc::clone(&store), Arc::clone(&tracker), Arc::clone(&paths), tx.clone());
+        thread::spawn(move || {
+            let fp = paths.get(fp_i).unwrap();
+            let hash = get_file_hash(fp);
+            match hash {
+                Ok(hash_string) => {
+                    let mut store = store.lock().unwrap().insert(hash_string, fp.clone());
+                }
+                Err(err) => {
+                    push_error(err.description());
+                }
+            }
+            let mut tr = tracker.lock().unwrap();
+            tr.increment();
+            tr.show();
+            if tr.is_done() {
+                tx.send(()).unwrap();
+            }
+        });
+    }
+    rx.recv().unwrap();
+    let mut store_cont = MultiMap::new();
+    mem::swap(store.lock().unwrap().deref_mut(), &mut store_cont);
+    store_cont
+}

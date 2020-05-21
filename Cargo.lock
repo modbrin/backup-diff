@@ -63,6 +63,7 @@ dependencies = [
  "checksums",
  "chrono",
  "clap 3.0.0-beta.1",
+ "defer",
  "lazy_static 1.4.0",
  "log",
  "log4rs",
@@ -283,6 +284,12 @@ name = "crunchy"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
+
+[[package]]
+name = "defer"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "647605a6345d5e89c3950a36a638c56478af9b414c55c6f2477c73b115f9acde"
 
 [[package]]
 name = "digest"

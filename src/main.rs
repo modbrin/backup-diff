@@ -1,28 +1,15 @@
-#[macro_use]
-extern crate log;
 
-use log4rs;
 use clap::clap_app;
-use log4rs::append::file::FileAppender;
-use log4rs::encode::pattern::PatternEncoder;
-use log4rs::config::{Config, Appender, Root};
-use log::LevelFilter;
-use std::error::Error;
-
-use backup_diff::{get_diff, find_duplicates, get_directory_map, print_select_values, print_duplicates, get_errors, print_errors};
+use backup_diff::{get_diff, find_duplicates, get_directory_map, get_errors};
+use crate::print_utils::{print_select_values, print_duplicates, print_errors};
+mod print_utils;
 
 // TODOS
-// add timestamps / erase log file
 // optimize for memory usage
 // use rayon for concurrent processing / handle concurrency with shared state
 // filter out warnings
 
 fn main() {
-    // let logging_res = setup_logging();
-    // if logging_res.is_err() {
-    //     println!("Error setting up logger.");
-    //     return;
-    // } // TODO: deprecated
 
     let matches = clap_app!("backup-diff" =>
         (version: "0.1")
@@ -30,11 +17,13 @@ fn main() {
         (about: "Provides hash difference in filesets between two directories.\nErrors are saved to problems.log file.")
         (@arg DIR_A: +required "First directory, e.g. newer version")
         (@arg DIR_B: +required "Second directory, e.g. older version")
+        (@arg LINEAR: -l --linear "Disable concurrent processing")
     ).get_matches();
 
     // try getting directory paths from cmd arguments
-    let map_a = get_directory_map(matches.value_of("DIR_A").unwrap());
-    let map_b = get_directory_map(matches.value_of("DIR_B").unwrap());
+    let enable_linear = matches.is_present("LINEAR");
+    let map_a = get_directory_map(matches.value_of("DIR_A").unwrap(), enable_linear);
+    let map_b = get_directory_map(matches.value_of("DIR_B").unwrap(), enable_linear);
 
     let (only_a, only_b) = get_diff(&map_a, &map_b);
     println!("New files ({} items):", only_a.len());
@@ -53,20 +42,5 @@ fn main() {
     let errors = get_errors();
 
     println!("\nErrors:");
-    print_errors(&errors); // TODO: move printing utils to separate file
-}
-
-// TODO: unused - repurpose or delete
-fn setup_logging() -> Result<(), Box<dyn Error>> {
-    let logfile = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
-        .build("problems.log")?;
-
-    let config = Config::builder()
-        .appender(Appender::builder().build("logfile", Box::new(logfile)))
-        .build(Root::builder().appender("logfile").build(LevelFilter::Info))?;
-
-    log4rs::init_config(config)?;
-
-    Ok(())
+    print_errors(&errors);
 }
