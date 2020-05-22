@@ -15,12 +15,8 @@ pub fn print_duplicates(duplicates: &Vec<Vec<String>>) {
     for dup in duplicates.iter() {
         for fp in dup.iter().enumerate() {
             match fp {
-                (0, str) => {
-                    println!("  [{}]", str)
-                }
-                (_, str) => {
-                    println!("    {} (duplicate)", str)
-                }
+                (0, str) => println!("  [{}]", str),
+                (_, str) => println!("    {} (duplicate)", str),
             }
         }
     }

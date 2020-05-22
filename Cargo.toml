@@ -16,4 +16,13 @@ log4rs = "0.12.0"
 log = "0.4.8"
 chrono = "0.4.11"
 lazy_static = "1.4.0"
-defer = "0.1.0"
+
+[dev-dependencies]
+criterion = "0.3"
+rand = "0.7.3"
+
+[[bench]]
+name = "linear_vs_parallel_hashing"
+harness = false
+sample_count = 10
+

@@ -1,16 +1,13 @@
-
+use crate::print_utils::{print_duplicates, print_errors, print_select_values};
+use backup_diff::{find_duplicates, get_diff, get_directory_map, get_errors};
 use clap::clap_app;
-use backup_diff::{get_diff, find_duplicates, get_directory_map, get_errors};
-use crate::print_utils::{print_select_values, print_duplicates, print_errors};
+use std::fs;
+use std::fs::File;
+use std::io::Write;
+
 mod print_utils;
 
-// TODOS
-// optimize for memory usage
-// use rayon for concurrent processing / handle concurrency with shared state
-// filter out warnings
-
 fn main() {
-
     let matches = clap_app!("backup-diff" =>
         (version: "0.1")
         (author: "Maksim S. <modbrin@live.com>")
@@ -18,7 +15,8 @@ fn main() {
         (@arg DIR_A: +required "First directory, e.g. newer version")
         (@arg DIR_B: +required "Second directory, e.g. older version")
         (@arg LINEAR: -l --linear "Disable concurrent processing")
-    ).get_matches();
+    )
+    .get_matches();
 
     // try getting directory paths from cmd arguments
     let enable_linear = matches.is_present("LINEAR");

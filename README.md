@@ -5,7 +5,7 @@ This utility operates on sets of files ignoring directory structure and symlinks
 
 ## Build
 ```shell
-cargo build
+cargo build --release
 ```
 
 ## How to use
@@ -60,6 +60,17 @@ Duplicates in `old` folder:
 
 Errors:
   <Empty>
+```
+
+## Tests
+```shell
+$ cargo test
+```
+
+## Benchmarks
+Using criterion crate for benchmarking.
+```shell
+$ cargo bench
 ```
 
 ## License

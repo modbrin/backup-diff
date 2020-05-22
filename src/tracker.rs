@@ -1,4 +1,3 @@
-
 pub struct ProgressTracker {
     counter: usize,
     min_val: usize,

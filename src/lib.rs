@@ -1,17 +1,17 @@
-use multimap::MultiMap;
-use std::collections::HashSet;
-use walkdir::WalkDir;
-use sha2::{Sha256, Digest};
-use std::fs::File;
-use std::path::Path;
-use std::{io, thread};
-use std::error::Error;
-use lazy_static::lazy_static;
-use std::sync::{Mutex, Arc};
 use crate::tracker::ProgressTracker;
-use std::sync::mpsc::channel;
-use std::ops::DerefMut;
 use core::mem;
+use lazy_static::lazy_static;
+use multimap::MultiMap;
+use sha2::{Digest, Sha256};
+use std::collections::HashSet;
+use std::error::Error;
+use std::fs::File;
+use std::ops::DerefMut;
+use std::path::Path;
+use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
+use std::{io, thread};
+use walkdir::WalkDir;
 
 mod tracker;
 
@@ -37,26 +37,36 @@ pub fn get_directory_map(dir: &str, force_linear: bool) -> MultiMap<String, Stri
     // connect filepaths and file hashes
     if force_linear {
         println!("Concurrent Processing Disabled");
-        hash_file_list(list)
+        hash_file_list(list, None)
     } else {
         println!("Concurrent Processing Enabled");
-        hash_file_list_parallel(list)
+        hash_file_list_parallel(list, None)
     }
 }
 
 /// get symmetric difference of keys in given maps split in two parts
-pub fn get_diff(map_a: &MultiMap<String, String>, map_b: &MultiMap<String, String>) -> (Vec<String>, Vec<String>) {
+pub fn get_diff(
+    map_a: &MultiMap<String, String>,
+    map_b: &MultiMap<String, String>,
+) -> (Vec<String>, Vec<String>) {
     // get filehash sets
     let set_a: HashSet<&str> = map_a.iter().map(|(k, _)| k.as_str()).collect();
     let set_b: HashSet<&str> = map_b.iter().map(|(k, _)| k.as_str()).collect();
 
     // find difference in filehash sets
-    let only_a = set_a.difference(&set_b).cloned().map(|s| s.to_owned()).collect(); // new items
-    let only_b = set_b.difference(&set_a).cloned().map(|s| s.to_owned()).collect(); // deleted items
+    let only_a = set_a
+        .difference(&set_b)
+        .cloned()
+        .map(|s| s.to_owned())
+        .collect(); // new items
+    let only_b = set_b
+        .difference(&set_a)
+        .cloned()
+        .map(|s| s.to_owned())
+        .collect(); // deleted items
 
     (only_a, only_b)
 }
-
 
 /// get duplicate entries referring to same key
 pub fn find_duplicates(map: &MultiMap<String, String>) -> Vec<Vec<String>> {
@@ -104,29 +114,49 @@ fn recursive_dir_list(dir: &str) -> Vec<String> {
 }
 
 /// moves out strings from input into resulting map
-pub fn hash_file_list(filepaths: Vec<String>) -> MultiMap<String, String> {
+pub fn hash_file_list(filepaths: Vec<String>, disable_printing: Option<bool>) -> MultiMap<String, String> {
+    let no_print = disable_printing.unwrap_or(false);
     let mut store = MultiMap::new();
-    println!("Hashing {} file(s), this may take long time.", (&filepaths).len());
+    if !no_print {
+        println!(
+            "Hashing {} file(s), this may take long time.",
+            (&filepaths).len()
+        );
+    }
 
     let mut tracker = ProgressTracker::new(0, (&filepaths).len());
 
     for fp in filepaths.iter() {
         tracker.increment();
-        tracker.show();
+        if !no_print {
+            tracker.show();
+        }
         let hash = get_file_hash(fp);
-        if hash.is_err() { continue; }
+        if hash.is_err() {
+            continue;
+        }
         let uwr_hash = hash.unwrap();
         store.insert(uwr_hash, fp.to_owned());
     }
-    println!("\rDone");
+    if !no_print {
+        println!("\rDone");
+    }
     store
 }
 
 /// moves out strings from input into resulting map
-pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, String> {
-    println!("Hashing {} file(s), this may take long time.", filepaths.len());
+pub fn hash_file_list_parallel(filepaths: Vec<String>, disable_printing: Option<bool>) -> MultiMap<String, String> {
+    let no_print = disable_printing.unwrap_or(false);
+    if !no_print {
+        println!(
+            "Hashing {} file(s), this may take long time.",
+            filepaths.len()
+        );
+    }
     if filepaths.is_empty() {
-        println!("Done");
+        if !no_print {
+            println!("Done");
+        }
         return MultiMap::new();
     }
 
@@ -136,7 +166,12 @@ pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, Strin
 
     let (tx, rx) = channel();
     for fp_i in 0..paths.len() {
-        let (store, tracker, paths, tx) = (Arc::clone(&store), Arc::clone(&tracker), Arc::clone(&paths), tx.clone());
+        let (store, tracker, paths, tx) = (
+            Arc::clone(&store),
+            Arc::clone(&tracker),
+            Arc::clone(&paths),
+            tx.clone(),
+        );
         thread::spawn(move || {
             let fp = paths.get(fp_i).unwrap();
             let hash = get_file_hash(fp);
@@ -150,7 +185,9 @@ pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, Strin
             }
             let mut tr = tracker.lock().unwrap();
             tr.increment();
-            tr.show();
+            if !no_print {
+                tr.show();
+            }
             if tr.is_done() {
                 tx.send(()).unwrap();
             }
@@ -159,6 +196,8 @@ pub fn hash_file_list_parallel(filepaths: Vec<String>) -> MultiMap<String, Strin
     rx.recv().unwrap();
     let mut store_cont = MultiMap::new();
     mem::swap(store.lock().unwrap().deref_mut(), &mut store_cont);
-    println!("\rDone");
+    if !no_print {
+        println!("\rDone");
+    }
     store_cont
 }
